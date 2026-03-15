@@ -1,10 +1,10 @@
 .bin
 .venv
 venv
-logs*
-log*
-.logs*
-.log*
+logs
+log
+.logs
+.log
 node_modules
 .trash
 dist

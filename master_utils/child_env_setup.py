@@ -125,9 +125,6 @@ def prepare_child(
 
     return cmd, env, cwd
 
-
-# -- private helpers --
-
 def _resolve_python(venv: str) -> str:
     if venv:
         python_path, _ = venv_paths(venv)
@@ -142,7 +139,6 @@ def _resolve_python(venv: str) -> str:
 
     return sys.executable
 
-
 def _apply_venv_to_env(env: dict[str, str], venv_dir: str | Path) -> None:
     python_path, bin_dir = venv_paths(venv_dir)
     if python_path.exists():
@@ -155,7 +151,6 @@ def _apply_venv_to_env(env: dict[str, str], venv_dir: str | Path) -> None:
         env["PYTHONPATH"] = (
             f"{existing}{os.pathsep}{target}" if existing else target
         )
-
 
 def _build_env(
     *,
@@ -170,7 +165,6 @@ def _build_env(
         _apply_venv_to_env(env, venv)
     return env
 
-
 def _find_target_file(raw_cmd: list[str]) -> Path | None:
     """Find the first token that looks like an existing file to execute."""
     for token in raw_cmd:
@@ -181,14 +175,12 @@ def _find_target_file(raw_cmd: list[str]) -> Path | None:
             return p.resolve()
     return None
 
-
 def _derive_script_dir(raw_cmd: list[str]) -> str:
     """Parent directory of the target file -- used as child cwd."""
     target = _find_target_file(raw_cmd)
     if target is not None:
         return str(target.parent)
     return os.getcwd()
-
 
 def _derive_package_root(raw_cmd: list[str]) -> str:
     """Walk up from the script until we leave a Python package.
@@ -204,13 +196,11 @@ def _derive_package_root(raw_cmd: list[str]) -> str:
         root = root.parent
     return str(root)
 
-
 def _resolve_tokens(raw_cmd: list[str]) -> list[str]:
     return [
         str(Path(token).resolve()) if Path(token).is_file() else token
         for token in raw_cmd
     ]
-
 
 def _build_cmd(*, raw_cmd: list[str], python: str, script_dir: str) -> list[str]:
     cmd = _resolve_tokens(raw_cmd)
@@ -225,7 +215,6 @@ def _build_cmd(*, raw_cmd: list[str], python: str, script_dir: str) -> list[str]
         return cmd
 
     return _inject_bootstrap(cmd, python, script_dir)
-
 
 def _inject_bootstrap(cmd: list[str], python: str, script_dir: str) -> list[str]:
     rest = cmd[1:]
