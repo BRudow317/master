@@ -1,0 +1,1 @@
+2026-03-15 13:18:55,282 [INFO] quickbitlabs: Starting quickbitlabs with args: Namespace(env='', config='./.env', venv='', venv_mode='child', verbose=True, log_dir='./logs', exec=['Q:/quickbitlabs/main.py']) and passthrough_args: []
