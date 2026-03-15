@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
-import sys, subprocess, threading
-from typing import IO, TextIO
+import sys, subprocess, threading, os
+
 from master_utils.parse_args import parse_args
 from master_utils.setup_logging import setup_logging
 from master_utils.child_env_setup import reexec_into_venv_if_needed, prepare_child
 from master_utils.parse_config_file import parse_config_file
 
+from typing import IO, TextIO
 
-PROGRAM_NAME='master'
-os.environ["PROGRAM_NAME"] = PROGRAM_NAME
-
+PROGRAM_NAME = os.getenv("PROGRAM_NAME", "master")
+if PROGRAM_NAME == "master":
+    os.environ["PROGRAM_NAME"] = PROGRAM_NAME
 
 def main():
-
     args, passthrough_args = parse_args(sys.argv[1:])
     logger, logfile = setup_logging(args.log_dir, args.verbose, PROGRAM_NAME)
     logger.debug(f"\nStarting {PROGRAM_NAME} with args: {args} and passthrough_args: {passthrough_args} \n\n\n")
