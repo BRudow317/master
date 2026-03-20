@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+env=$1
+
+my_dev01_user=user1
+my_dev01_pass=examplepass
+my_dev02_user=user2
+my_dev02_pass=otherpass
+
+MY_USER=my_${env}_user
+MY_PASS=my_${env}_pass

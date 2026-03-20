@@ -114,10 +114,17 @@ def parse_config_file(config_path: str | Path = "", env: str = "") -> dict[str, 
     lookup = {**os.environ, **raw, "env": env, "ENV": env}
 
     def interpolate(val: str) -> str:
-        def repl(m: re.Match) -> str:
-            name = m.group(1) or m.group(2)
-            return lookup.get(name, m.group(0))
-        return _VAR.sub(repl, val)
+        previous = None
+        loops = 0
+        while val != previous and loops < 10:
+            previous = val
+            def repl(m: re.Match) -> str:
+                name = m.group(1) or m.group(2)
+                return lookup.get(name, m.group(0))
+            
+            val = _VAR.sub(repl, val)
+            loops += 1
+        return val
 
     resolved = {k: interpolate(v) for k, v in raw.items()}
     return resolved
