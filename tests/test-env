@@ -2,10 +2,20 @@
 
 env=$1
 
-my_dev01_user=user1
-my_dev01_pass=examplepass
-my_dev02_user=user2
-my_dev02_pass=otherpass
+oracle_dev01_user=user1
+oracle_dev01_pass=examplepass
+oracle_dev01_host=localhost
+oracle_dev01_port=1521
+oracle_dev01_sid=ORCL
 
-MY_USER=my_${env}_user
-MY_PASS=my_${env}_pass
+oracle_dev02_user=user2
+oracle_dev02_pass=otherpass
+oracle_dev02_host=localhost
+oracle_dev02_port=1522
+oracle_dev02_sid=ORCL2
+
+ORACLE_USER=oracle_${env}_user
+ORACLE_PASS=oracle_${env}_pass
+ORACLE_HOST=oracle_${env}_host
+ORACLE_PORT=oracle_${env}_port
+ORACLE_SID=oracle_${env}_sid

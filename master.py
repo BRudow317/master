@@ -4,7 +4,7 @@ master.py universal bootstrapper
 """
 from __future__ import annotations
 
-import sys, subprocess, threading, os, argparse, re, logging, platform
+import sys, subprocess, threading, os, argparse, re, logging
 from pathlib import Path
 from datetime import datetime
 
@@ -15,9 +15,15 @@ if PROGRAM_NAME == "master":
     os.environ["PROGRAM_NAME"] = PROGRAM_NAME
 
 _VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
-
 _LOG_FORMAT = '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-
+_LOGGING_BOOTSTRAP = (
+    "import sys,os,logging,runpy;"
+    "logging.basicConfig("
+    "level=os.environ.get('LOG_LEVEL','INFO').upper(),"
+    f"format={_LOG_FORMAT!r});"
+    "sys.argv=sys.argv[1:];"
+    "runpy.run_path(sys.argv[0],run_name='__main__')"
+)
 _PYTHON_BASENAMES = frozenset({
     "python", "python3", "python.exe", "python3.exe", "py", "py.exe", "pythonw.exe",
 })
@@ -45,6 +51,7 @@ def prepare_child(
     # Resolve venv python and build env
     python = sys.executable
     env = {**os.environ, **config_vars}
+    env["PYTHONUNBUFFERED"] = "1"
     env.setdefault("LOG_LEVEL", "DEBUG" if getattr(args, "verbose", False) else "INFO")
     if venv:
         bin_dir = Path(venv) / ("Scripts" if sys.platform == "win32" else "bin")
@@ -67,6 +74,11 @@ def prepare_child(
         cmd[0] = python
     elif Path(cmd[0]).suffix == ".py" and os.path.isfile(cmd[0]):
         cmd = [python] + cmd
+
+    # Inject logging bootstrap: python -c <bootstrap> script.py [args...]
+    # runpy.run_path preserves __file__ and __name__='__main__' for the child script
+    if len(cmd) >= 2 and Path(cmd[0]).name.lower() in _PYTHON_BASENAMES and cmd[1].endswith(".py"):
+        cmd = [cmd[0], "-c", _LOGGING_BOOTSTRAP] + cmd[1:]
 
     return cmd, env, cwd
 
@@ -127,6 +139,9 @@ def parse_config_file(config_path: str | Path = "", env: str = "") -> dict[str, 
         return val
 
     resolved = {k: interpolate(v) for k, v in raw.items()}
+    for k, v in list(resolved.items()):
+        if v in resolved:
+            resolved[k] = resolved[v]
     return resolved
 
 def parse_args(argv) -> argparse.Namespace:
