@@ -16,31 +16,22 @@ if PROGRAM_NAME == "master":
 
 _VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
 _LOG_FORMAT = '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-_LOGGING_BOOTSTRAP = (
-    "import sys,os,logging,runpy;"
-    "logging.basicConfig("
-    "level=os.environ.get('LOG_LEVEL','INFO').upper(),"
-    f"format={_LOG_FORMAT!r});"
-    "sys.argv=sys.argv[1:];"
-    "runpy.run_path(sys.argv[0],run_name='__main__')"
-)
-_PYTHON_BASENAMES = frozenset({
+
+_PYTHON_BASENAMES = {
     "python", "python3", "python.exe", "python3.exe", "py", "py.exe", "pythonw.exe",
-})
+}
 
 def prepare_child(
     args,
     config_vars: dict[str, str] | None = None,
 ) -> tuple[list[str], dict[str, str], str]:
-    """Build (cmd, env, cwd) for subprocess.Popen"""
     config_vars = config_vars or {}
     venv = getattr(args, "venv", "")
+    is_python = False
 
-    # Find the script file (first existing file token) for cwd + PYTHONPATH
+    # checking for __init__.py files to find the importable package root as a backup check for running scripts in sub directories.
     script = next((Path(t).resolve() for t in args.exec if Path(t).is_file()), None)
     cwd = str(script.parent) if script else os.getcwd()
-
-    # Walk up past __init__.py files to find the importable package root
     pkg_root = cwd
     if script and script.suffix == ".py":
         root = script.parent
@@ -48,16 +39,14 @@ def prepare_child(
             root = root.parent
         pkg_root = str(root)
 
-    # Resolve venv python and build env
+    # checking named venv and building with env
     python = sys.executable
     env = {**os.environ, **config_vars}
     env["PYTHONUNBUFFERED"] = "1"
-    env.setdefault("LOG_LEVEL", "DEBUG" if getattr(args, "verbose", False) else "INFO")
     if venv:
         bin_dir = Path(venv) / ("Scripts" if sys.platform == "win32" else "bin")
         venv_python = bin_dir / ("python.exe" if sys.platform == "win32" else "python")
-        if not venv_python.exists():
-            raise FileNotFoundError(f"venv python not found: {venv_python}")
+        if not venv_python.exists(): raise FileNotFoundError(f"venv python not found: {venv_python}")
         python = str(venv_python)
         env["VIRTUAL_ENV"] = str(Path(venv).resolve())
         env.pop("PYTHONHOME", None)
@@ -72,13 +61,23 @@ def prepare_child(
     cmd = [str(Path(t).resolve()) if Path(t).is_file() else t for t in args.exec]
     if os.path.basename(cmd[0]).lower() in _PYTHON_BASENAMES:
         cmd[0] = python
+        is_python = True
     elif Path(cmd[0]).suffix == ".py" and os.path.isfile(cmd[0]):
         cmd = [python] + cmd
+        is_python = True
 
-    # Inject logging bootstrap: python -c <bootstrap> script.py [args...]
-    # runpy.run_path preserves __file__ and __name__='__main__' for the child script
-    if len(cmd) >= 2 and Path(cmd[0]).name.lower() in _PYTHON_BASENAMES and cmd[1].endswith(".py"):
-        cmd = [cmd[0], "-c", _LOGGING_BOOTSTRAP] + cmd[1:]
+    # Inject child env logging bootstrap
+    log_level = "INFO"
+    if args.verbose: log_level = "DEBUG"
+    logging_bootstrap = (
+        "import sys,os,logging,runpy;"
+        "logging.basicConfig("
+        f"level=os.environ.get('LOG_LEVEL','{log_level}').upper(),"
+        f"format={_LOG_FORMAT!r});"
+        "sys.argv=sys.argv[1:];"
+        "runpy.run_path(sys.argv[0],run_name='__main__')"
+    )
+    if is_python: cmd = [cmd[0], "-c", logging_bootstrap] + cmd[1:]
 
     return cmd, env, cwd
 
@@ -160,10 +159,8 @@ def parse_args(argv) -> argparse.Namespace:
     parser.add_argument("-l", "--log", type=str, dest="log_dir", default="sys.stdout",  required=False, help=_log_help_msg)
     parser.add_argument("--exec", nargs=argparse.REMAINDER, default=[], dest="exec", help=_exec_help_msg)
     args = parser.parse_args(argv)
-
     if not args.exec:
         parser.error(f"Child command required after --exec. Usage:\n  {PROGRAM_NAME} [flags] --exec python your_script.py")
-
     return args
 
 def main():
@@ -195,8 +192,7 @@ def main():
     t_out = threading.Thread(target=stream_pipe, args=(process.stdout, sys.stdout))
     t_err = threading.Thread(target=stream_pipe, args=(process.stderr, sys.stderr))
     t_out.start(); t_err.start(); t_out.join(); t_err.join()
-    if lf:
-        lf.close()
+    if lf: lf.close()
     process.wait()
     sys.exit( process.returncode )
 
